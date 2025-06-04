@@ -14,7 +14,6 @@
 
 <p align="center">
   <a href="https://t-and-c.onrender.com"><img src="https://img.shields.io/badge/Live%20Demo-Click%20Here-green?style=for-the-badge"/></a>
-  <a href="https://youtube.com/your-video"><img src="https://img.shields.io/badge/Watch%20Demo%20Video-FF0000?logo=youtube&logoColor=white&style=for-the-badge"/></a>
 </p>
 
 ---
@@ -29,13 +28,13 @@
 * 💡 Understand your rights
 * 📉 Evaluate risk instantly
 
----
+> Try the live demo and upload any PDF or paste a link — see what you’re really signing up for.
 
-#
+---
 
 ## 🔍 TL;DR – What It Does
 
-📎 Upload a PDF, paste legal text, or link to a webpage. <br/>
+📌 Upload a PDF, paste legal text, or link to a webpage. <br/>
 🧠 GPT-4 analyzes the content with custom legal prompts. <br/>
 🚦 Clauses are highlighted with red/yellow/green tags. <br/>
 📊 Risks are categorized and scored from 0 to 100. <br/>
@@ -54,8 +53,13 @@
 
 ---
 
+## ✨ Live Playground
 
-## ⚙️ Quickstart in 60s
+> 💡 [**Launch Live App**](https://t-and-c.onrender.com) – test it with *any* T\&C URL or PDF!
+
+---
+
+## 🔧 Quickstart in 60s
 
 ```bash
 # 1. Clone project
@@ -70,6 +74,10 @@ $ cp .env.example .env.local
 $ nano .env.local  # Paste your OPENAI_API_KEY
 
 # 4. Start the app
-$ npm run dev  
+$ npm run dev
 ```
+
+🧪 Open [http://localhost:3000](http://localhost:3000) and test it out!
+
+---
 
