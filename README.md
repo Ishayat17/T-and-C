@@ -1,30 +1,13 @@
-# Terms and Conditions viewer
+💡 Terms & Conditions Analyzer
+Full-Stack AI-Powered Assistant
+Next.js • React • TypeScript • OpenAI API • TailwindCSS • Vercel
 
-*Automatically synced with your [v0.dev](https://v0.dev) deployments*
+Designed and developed a full-stack web app that parses legal documents (PDFs, raw text, and URLs) to identify risky clauses using GPT-4.
 
-[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/ishayat17s-projects/v0-terms-and-conditions-viewer)
-[![Built with v0](https://img.shields.io/badge/Built%20with-v0.dev-black?style=for-the-badge)](https://v0.dev/chat/projects/DEyuaeUwtLe)
+Engineered a risk classification system with AI-driven clause tagging and real-time interactive highlighting (green/yellow/red).
 
-## Overview
+Built secure user flow with persistent document history, local storage auth, and intuitive dashboard.
 
-This repository will stay in sync with your deployed chats on [v0.dev](https://v0.dev).
-Any changes you make to your deployed app will be automatically pushed to this repository from [v0.dev](https://v0.dev).
+Integrated pdf.js and DOMPurify to cleanly extract and sanitize content from documents and web pages.
 
-## Deployment
-
-Your project is live at:
-
-**[https://vercel.com/ishayat17s-projects/v0-terms-and-conditions-viewer](https://vercel.com/ishayat17s-projects/v0-terms-and-conditions-viewer)**
-
-## Build your app
-
-Continue building your app on:
-
-**[https://v0.dev/chat/projects/DEyuaeUwtLe](https://v0.dev/chat/projects/DEyuaeUwtLe)**
-
-## How It Works
-
-1. Create and modify your project using [v0.dev](https://v0.dev)
-2. Deploy your chats from the v0 interface
-3. Changes are automatically pushed to this repository
-4. Vercel deploys the latest version from this repository
+Deployed on Vercel with CI/CD pipelines; optimized for accessibility and mobile responsiveness.
