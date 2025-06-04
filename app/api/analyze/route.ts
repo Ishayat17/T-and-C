@@ -1,230 +1,210 @@
+import { generateText } from "ai"
+import { openai } from "@ai-sdk/openai"
 import { type NextRequest, NextResponse } from "next/server"
 
-// Advanced text analysis function
-function analyzeTermsAndConditions(text: string) {
-  const words = text.toLowerCase().split(/\s+/)
-  const wordCount = words.length
+// AI-powered analysis function
+async function analyzeTermsAndConditionsWithAI(text: string) {
+  const wordCount = text.split(/\s+/).length
 
-  // Define keyword patterns for different categories
-  const patterns = {
-    dataCollection: [
-      "personal data",
-      "personal information",
-      "collect",
-      "gathering",
-      "tracking",
-      "cookies",
-      "analytics",
-      "location",
-      "device information",
-      "ip address",
-      "browsing",
-      "usage data",
-      "behavioral",
-      "demographic",
-      "biometric",
-    ],
-    privacy: [
-      "privacy",
-      "confidential",
-      "share",
-      "third party",
-      "partners",
-      "advertising",
-      "marketing",
-      "sell",
-      "transfer",
-      "disclosure",
-    ],
-    liability: [
-      "liability",
-      "responsible",
-      "damages",
-      "loss",
-      "harm",
-      "injury",
-      "disclaimer",
-      "limitation",
-      "exclude",
-      "waive",
-      "indemnify",
-    ],
-    termination: [
-      "terminate",
-      "suspension",
-      "cancel",
-      "close",
-      "deactivate",
-      "breach",
-      "violation",
-      "immediate",
-      "notice",
-      "deletion",
-    ],
-    userRights: [
-      "rights",
-      "obligations",
-      "responsibilities",
-      "prohibited",
-      "allowed",
-      "access",
-      "modify",
-      "delete",
-      "portability",
-      "consent",
-      "opt-out",
-    ],
-    legal: [
-      "arbitration",
-      "court",
-      "jurisdiction",
-      "governing law",
-      "dispute",
-      "class action",
-      "jury trial",
-      "legal action",
-      "lawsuit",
-    ],
-    changes: ["modify", "change", "update", "revise", "amendment", "notification", "effective date", "notice period"],
-  }
+  try {
+    // Generate comprehensive analysis using AI
+    const { text: analysisResult } = await generateText({
+      model: openai("gpt-4o-mini"), // Using GPT-4o-mini for cost efficiency
+      system: `You are an expert legal analyst specializing in terms and conditions documents. Analyze the provided text and return a JSON response with the following structure:
 
-  // Count matches for each category
-  const categoryScores: Record<string, number> = {}
-  const categoryDetails: Record<string, string[]> = {}
+{
+  "summary": "A comprehensive 2-3 sentence summary of the document's key aspects and overall risk level",
+  "keyPoints": ["Array of 5-7 specific key points about important clauses, data practices, user obligations, etc."],
+  "riskAssessment": {
+    "level": "low|medium|high",
+    "score": number between 0-100,
+    "concerns": ["Array of specific concerning clauses or practices found"]
+  },
+  "categories": {
+    "dataCollection": {
+      "summary": "Analysis of data collection practices",
+      "details": [{"term": "specific term found", "count": number, "positions": [array of character positions]}],
+      "score": number,
+      "riskLevel": "low|medium|high"
+    },
+    "liability": {
+      "summary": "Analysis of liability and disclaimer clauses",
+      "details": [{"term": "specific term found", "count": number, "positions": [array of character positions]}],
+      "score": number,
+      "riskLevel": "low|medium|high"
+    },
+    "termination": {
+      "summary": "Analysis of account termination procedures",
+      "details": [{"term": "specific term found", "count": number, "positions": [array of character positions]}],
+      "score": number,
+      "riskLevel": "low|medium|high"
+    },
+    "userRights": {
+      "summary": "Analysis of user rights and obligations",
+      "details": [{"term": "specific term found", "count": number, "positions": [array of character positions]}],
+      "score": number,
+      "riskLevel": "low|medium|high"
+    }
+  },
+  "textHighlights": [
+    {
+      "start": character_position,
+      "end": character_position,
+      "category": "dataCollection|liability|termination|userRights|concerning",
+      "term": "highlighted term",
+      "severity": "low|medium|high"
+    }
+  ],
+  "originalText": "the original input text",
+  "wordCount": ${wordCount},
+  "readingTime": estimated_reading_time_in_minutes,
+  "categoryBreakdown": [
+    {"category": "category_name", "score": number, "percentage": number}
+  ]
+}
 
-  Object.entries(patterns).forEach(([category, keywords]) => {
-    let score = 0
-    const foundTerms: string[] = []
+Focus on:
+- Data collection and privacy practices
+- Liability limitations and disclaimers
+- Account termination procedures
+- User rights and obligations
+- Concerning phrases like "without notice", "at our discretion", "unlimited liability", etc.
+- Legal dispute resolution mechanisms
 
-    keywords.forEach((keyword) => {
-      const regex = new RegExp(`\\b${keyword.replace(/\s+/g, "\\s+")}\\b`, "gi")
-      const matches = text.match(regex)
-      if (matches) {
-        score += matches.length
-        foundTerms.push(keyword)
-      }
+IMPORTANT: Return ONLY the JSON object with no markdown formatting, code blocks, or additional text. The response should be valid JSON that can be directly parsed.`,
+      prompt: `Analyze this terms and conditions document:
+
+${text}
+
+Provide a comprehensive analysis in the specified JSON format.`,
     })
 
-    categoryScores[category] = score
-    categoryDetails[category] = foundTerms
-  })
+    console.log("AI response received, length:", analysisResult.length)
 
-  // Calculate risk score
-  let riskScore = 30 // Base score
+    // Extract JSON from the response - handle potential markdown formatting
+    let jsonStr = analysisResult
 
-  // Increase risk based on concerning patterns
-  if (categoryScores.dataCollection > 5) riskScore += 15
-  if (categoryScores.privacy > 3) riskScore += 10
-  if (categoryScores.liability > 3) riskScore += 15
-  if (categoryScores.legal > 2) riskScore += 10
-  if (categoryScores.changes > 2) riskScore += 5
+    // Remove markdown code blocks if present
+    jsonStr = jsonStr.replace(/```(?:json)?\s*/, "").replace(/\s*```\s*$/, "")
 
-  // Check for specific concerning phrases
-  const concerningPhrases = [
+    // Remove any leading/trailing whitespace
+    jsonStr = jsonStr.trim()
+
+    console.log("Extracted JSON string, first 100 chars:", jsonStr.substring(0, 100))
+
+    // Parse the AI response
+    let parsedResult
+    try {
+      parsedResult = JSON.parse(jsonStr)
+      console.log("JSON parsed successfully")
+    } catch (parseError) {
+      console.error("Failed to parse AI response:", parseError)
+      console.error("First 200 characters of response:", jsonStr.substring(0, 200))
+      // Fallback to basic analysis if AI response is malformed
+      return generateFallbackAnalysis(text, wordCount)
+    }
+
+    // Ensure all required fields are present
+    return {
+      summary:
+        parsedResult.summary ||
+        `This ${wordCount}-word document contains terms and conditions that require careful review.`,
+      keyPoints: parsedResult.keyPoints || ["Document contains legal terms requiring review"],
+      riskAssessment: {
+        level: parsedResult.riskAssessment?.level || "medium",
+        score: parsedResult.riskAssessment?.score || 50,
+        concerns: parsedResult.riskAssessment?.concerns || ["Standard terms and conditions - review recommended"],
+      },
+      categories: parsedResult.categories || generateDefaultCategories(),
+      textHighlights: parsedResult.textHighlights || [],
+      originalText: text,
+      wordCount,
+      readingTime: Math.ceil(wordCount / 200),
+      categoryBreakdown: parsedResult.categoryBreakdown || [],
+    }
+  } catch (error) {
+    console.error("AI analysis failed:", error)
+    // Fallback to basic analysis if AI fails
+    return generateFallbackAnalysis(text, wordCount)
+  }
+}
+
+// Fallback analysis function for when AI fails
+function generateFallbackAnalysis(text: string, wordCount: number) {
+  console.log("Using fallback analysis")
+  const lowerText = text.toLowerCase()
+
+  // Basic keyword detection for fallback
+  const riskKeywords = [
     "without notice",
     "at our discretion",
     "unlimited liability",
     "waive all rights",
     "binding arbitration",
-    "class action waiver",
     "sell your data",
-    "share with partners",
-    "no warranty",
   ]
 
-  const concerns: string[] = []
-  concerningPhrases.forEach((phrase) => {
-    if (text.toLowerCase().includes(phrase)) {
-      concerns.push(`Document contains: "${phrase}"`)
-      riskScore += 8
-    }
-  })
+  const foundRisks = riskKeywords.filter((keyword) => lowerText.includes(keyword))
+  const riskScore = Math.min(30 + foundRisks.length * 15, 100)
 
-  // Determine risk level
-  let riskLevel: "low" | "medium" | "high"
+  let riskLevel: "low" | "medium" | "high" = "low"
   if (riskScore >= 70) riskLevel = "high"
   else if (riskScore >= 45) riskLevel = "medium"
-  else riskLevel = "low"
-
-  // Generate key points
-  const keyPoints: string[] = []
-
-  if (categoryScores.dataCollection > 0) {
-    keyPoints.push(`Data collection practices mentioned ${categoryScores.dataCollection} times`)
-  }
-  if (categoryScores.liability > 0) {
-    keyPoints.push(`Liability limitations and disclaimers present`)
-  }
-  if (categoryScores.termination > 0) {
-    keyPoints.push(`Account termination procedures outlined`)
-  }
-  if (categoryScores.legal > 0) {
-    keyPoints.push(`Legal dispute resolution mechanisms specified`)
-  }
-  if (categoryScores.userRights > 0) {
-    keyPoints.push(`User rights and obligations detailed`)
-  }
-  if (categoryScores.changes > 0) {
-    keyPoints.push(`Terms modification procedures described`)
-  }
-
-  // Add general points if specific ones are lacking
-  if (keyPoints.length < 3) {
-    keyPoints.push(`Document contains ${wordCount} words of legal text`)
-    keyPoints.push(`Standard terms and conditions structure detected`)
-    keyPoints.push(`Review recommended before accepting`)
-  }
-
-  // Generate category analysis
-  const categories = {
-    dataCollection:
-      categoryScores.dataCollection > 0
-        ? `Data collection practices are mentioned ${categoryScores.dataCollection} times. Found references to: ${categoryDetails.dataCollection.slice(0, 3).join(", ")}. Review privacy sections carefully to understand what information is collected and how it's used.`
-        : "Limited information about data collection practices found. This may indicate minimal data gathering or incomplete privacy disclosure.",
-
-    liability:
-      categoryScores.liability > 0
-        ? `Liability terms appear ${categoryScores.liability} times. The document includes disclaimers and limitations on company responsibility. Users should understand what risks they assume when using the service.`
-        : "Standard liability terms appear to apply. No extensive disclaimers or unusual liability limitations detected.",
-
-    termination:
-      categoryScores.termination > 0
-        ? `Account termination procedures are outlined with ${categoryScores.termination} references. This includes conditions under which accounts may be suspended or closed and what happens to user data.`
-        : "Basic service termination terms are included. Standard account closure procedures likely apply.",
-
-    userRights:
-      categoryScores.userRights > 0
-        ? `User rights and obligations are detailed with ${categoryScores.userRights} mentions. This covers what users can and cannot do, as well as their rights regarding their data and account.`
-        : "User rights and responsibilities are outlined in standard terms. Review to understand your commitments and protections.",
-  }
-
-  // Add specific concerns based on analysis
-  if (categoryScores.dataCollection > 8) {
-    concerns.push("Extensive data collection practices mentioned")
-  }
-  if (categoryScores.liability > 5) {
-    concerns.push("Multiple liability limitations and disclaimers")
-  }
-  if (categoryScores.legal > 3) {
-    concerns.push("Complex legal dispute resolution requirements")
-  }
 
   return {
-    summary: `This ${wordCount}-word document contains ${riskLevel} risk terms and conditions. ${
-      categoryScores.dataCollection > 0 ? "Data collection practices are outlined. " : ""
-    }${categoryScores.liability > 0 ? "Liability limitations are present. " : ""}${
-      categoryScores.termination > 0 ? "Account termination procedures are specified. " : ""
-    }Users should review carefully before accepting.`,
-
-    keyPoints: keyPoints.slice(0, 7), // Limit to 7 points
-
+    summary: `This ${wordCount}-word document contains ${riskLevel} risk terms and conditions. ${foundRisks.length > 0 ? "Several concerning clauses were identified. " : ""}Users should review carefully before accepting.`,
+    keyPoints: [
+      `Document contains ${wordCount} words of legal text`,
+      foundRisks.length > 0
+        ? `Found ${foundRisks.length} potentially concerning clauses`
+        : "Standard legal language detected",
+      "Review recommended before accepting terms",
+      "Pay attention to data collection and liability sections",
+      "Check termination and dispute resolution procedures",
+    ],
     riskAssessment: {
       level: riskLevel,
-      score: Math.min(riskScore, 100),
-      concerns: concerns.length > 0 ? concerns : ["Standard terms and conditions - review recommended"],
+      score: riskScore,
+      concerns:
+        foundRisks.length > 0
+          ? foundRisks.map((risk) => `Document contains: "${risk}"`)
+          : ["Standard terms and conditions - review recommended"],
     },
+    categories: generateDefaultCategories(),
+    textHighlights: [],
+    originalText: text,
+    wordCount,
+    readingTime: Math.ceil(wordCount / 200),
+    categoryBreakdown: [{ category: "general", score: riskScore, percentage: 100 }],
+  }
+}
 
-    categories,
+function generateDefaultCategories() {
+  return {
+    dataCollection: {
+      summary: "Data collection practices require review",
+      details: [],
+      score: 0,
+      riskLevel: "medium" as const,
+    },
+    liability: {
+      summary: "Liability terms require review",
+      details: [],
+      score: 0,
+      riskLevel: "medium" as const,
+    },
+    termination: {
+      summary: "Termination procedures require review",
+      details: [],
+      score: 0,
+      riskLevel: "medium" as const,
+    },
+    userRights: {
+      summary: "User rights and obligations require review",
+      details: [],
+      score: 0,
+      riskLevel: "medium" as const,
+    },
   }
 }
 
@@ -245,71 +225,95 @@ export async function POST(request: NextRequest) {
       useDemo,
     })
 
-    // If demo mode is requested, return sample analysis
+    // If demo mode is requested, return AI-generated demo analysis
     if (useDemo) {
-      console.log("Returning demo analysis")
-      return NextResponse.json({
-        summary:
-          "This is a comprehensive demo analysis showing how the Terms & Conditions Analyzer works. This sample represents a medium-risk document with typical privacy policies, data collection practices, and user obligations found in most online services. Several concerning clauses about data sharing and limited liability have been identified that users should be aware of before accepting.",
-        keyPoints: [
-          "Service collects extensive personal data including browsing habits, device information, and location data",
-          "Company reserves the right to share data with third-party partners for marketing and advertising purposes",
-          "Users cannot hold the company liable for service interruptions, data breaches, or financial losses",
-          "Account termination can occur at any time without prior notice for policy violations",
-          "Dispute resolution requires binding arbitration, effectively waiving the right to jury trial",
-          "Terms and conditions can be modified at any time with minimal notification requirements",
-          "User-generated content becomes the intellectual property of the service provider upon submission",
-        ],
-        riskAssessment: {
-          level: "medium" as const,
-          score: 65,
-          concerns: [
-            "Broad data collection including sensitive personal information and behavioral tracking",
-            "Data sharing agreements with unspecified third-party partners and advertisers",
-            "Limited user rights regarding data deletion and account portability",
-            "Mandatory arbitration clause significantly limits legal recourse options",
-            "Terms can be changed unilaterally with minimal user notification",
-            "Extensive liability disclaimers shift most risks to users",
-          ],
-        },
-        categories: {
-          dataCollection:
-            "The service collects extensive personal data including browsing history, device information, location data, IP addresses, and user interactions. This data is shared with advertising partners and may be retained indefinitely even after account deletion. Users have limited control over data collection and sharing practices.",
-          liability:
-            "The company significantly limits its liability for service outages, data breaches, financial losses, or any damages resulting from service use. Users assume most risks associated with using the platform, including potential security vulnerabilities and data loss.",
-          termination:
-            "Accounts can be suspended or terminated immediately without notice for policy violations or at the company's discretion. Upon termination, user data may be retained for business purposes, and users may lose access to their content and any paid services without refund.",
-          userRights:
-            "Users have limited rights regarding data portability, deletion requests, and account control. The mandatory arbitration clause restricts legal options, and users cannot participate in class action lawsuits. Content ownership transfers to the platform upon submission.",
-        },
-      })
+      console.log("Generating OpenAI demo analysis")
+      const demoText = `
+        Terms of Service
+
+        1. Data Collection and Privacy
+        We collect personal data including your name, email address, browsing habits, device information, location data, and usage patterns. This information may be shared with third-party partners for advertising and marketing purposes. We use cookies and tracking technologies to monitor your behavior across our platform.
+
+        2. Liability and Disclaimers
+        The service is provided "as is" without warranty. We disclaim all liability for damages, loss, or harm resulting from service use. Users waive all rights to hold the company responsible for any issues. This limitation of liability is unlimited and applies to all circumstances.
+
+        3. Account Termination
+        We may terminate your account immediately without notice at our discretion. Upon termination, all user data may be retained for business purposes. Users have no right to data portability or account recovery.
+
+        4. Legal Disputes
+        All disputes must be resolved through binding arbitration. Users waive their right to jury trial and cannot participate in class action lawsuits. The governing law is determined at our discretion.
+
+        5. Changes to Terms
+        We may modify these terms at any time without notice. Continued use constitutes acceptance of changes. Users cannot opt out of modifications.
+      `
+
+      return NextResponse.json(await analyzeTermsAndConditionsWithAI(demoText))
     }
 
     let text = ""
 
     if (file) {
       console.log("Processing file:", file.name, file.type)
-      // Handle file upload
       const buffer = await file.arrayBuffer()
 
-      if (file.type.startsWith("image/")) {
+      if (file.type === "application/pdf") {
+        console.log("PDF file detected - extracting text")
+        try {
+          // Simple PDF text extraction (for demo purposes)
+          const uint8Array = new Uint8Array(buffer)
+          const textDecoder = new TextDecoder("utf-8")
+          let pdfText = textDecoder.decode(uint8Array)
+
+          // Basic PDF text extraction - remove PDF headers and binary data
+          pdfText = pdfText.replace(/[\x00-\x1F\x7F-\x9F]/g, " ")
+          pdfText = pdfText.replace(/\s+/g, " ")
+
+          // Extract readable text (this is a simplified approach)
+          const textMatches = pdfText.match(/[a-zA-Z\s.,;:!?'"()-]{10,}/g)
+          if (textMatches && textMatches.length > 0) {
+            text = textMatches.join(" ").trim()
+          }
+
+          if (!text || text.length < 100) {
+            // Fallback: try to extract any readable content
+            text = pdfText
+              .replace(/[^\w\s.,;:!?'"()-]/g, " ")
+              .replace(/\s+/g, " ")
+              .trim()
+          }
+
+          if (!text || text.length < 50) {
+            throw new Error("Could not extract readable text from PDF")
+          }
+
+          console.log("PDF text extracted, length:", text.length)
+        } catch (pdfError) {
+          console.error("PDF parsing error:", pdfError)
+          return NextResponse.json(
+            {
+              error: "Failed to extract text from PDF. Please try converting to text format or use the paste option.",
+              type: "pdf_parsing_error",
+            },
+            { status: 400 },
+          )
+        }
+      } else if (file.type.startsWith("image/")) {
         console.log("Image file detected")
         return NextResponse.json(
           {
-            error: "Image analysis is not supported. Please use text files, URLs, or paste text directly.",
+            error: "Image analysis is not supported. Please use text files, PDFs, URLs, or paste text directly.",
             type: "feature_unavailable",
           },
           { status: 400 },
         )
       } else {
-        // Handle text/PDF files
+        // Handle text files
         const content = new TextDecoder().decode(buffer)
         text = content
         console.log("File content length:", text.length)
       }
     } else if (url) {
       console.log("Processing URL:", url)
-      // Handle URL extraction
       try {
         const response = await fetch(url)
         if (!response.ok) {
@@ -336,7 +340,6 @@ export async function POST(request: NextRequest) {
       }
     } else if (pastedText) {
       console.log("Processing pasted text, length:", pastedText.length)
-      // Handle pasted text
       text = pastedText.trim()
     } else {
       console.log("No input provided")
@@ -348,9 +351,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Document appears to be empty or too short to analyze" }, { status: 400 })
     }
 
-    console.log("Performing text analysis...")
-    const analysis = analyzeTermsAndConditions(text)
-    console.log("Analysis completed successfully")
+    // Limit text length for AI processing (to avoid token limits)
+    if (text.length > 50000) {
+      text = text.substring(0, 50000) + "... [truncated for analysis]"
+      console.log("Text truncated for AI processing")
+    }
+
+    console.log("Performing AI-powered analysis...")
+    const analysis = await analyzeTermsAndConditionsWithAI(text)
+    console.log("AI analysis completed successfully")
 
     return NextResponse.json(analysis)
   } catch (error) {
