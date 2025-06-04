@@ -1,14 +1,6 @@
 # 📋 Terms & Conditions Analyzer
 
 <p align="center">
-  <img src="https://img.shields.io/badge/AI%20Powered-Legal%20Analysis-blue?style=for-the-badge"/>
-  <img src="https://img.shields.io/badge/Next.js-000000?style=for-the-badge&logo=nextdotjs&logoColor=white"/>
-  <img src="https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white"/>
-  <img src="https://img.shields.io/badge/OpenAI-412991?style=for-the-badge&logo=openai&logoColor=white"/>
-  <img src="https://img.shields.io/github/license/yourusername/terms-conditions-analyzer?style=for-the-badge"/>
-</p>
-
-<p align="center">
   <b>🚀 Instantly Understand Any Terms of Service with AI 🔍</b>
 </p>
 
