@@ -54,24 +54,6 @@
 
 ---
 
-## ✨ Live Playground
-
-> 💡 [**Launch Live App**](https://t-and-c.onrender.com) – test it with *any* T\&C URL or PDF!
-
----
-
-## 🧪 Screenshots
-
-| Upload                                                         | Analysis                                                            | Clause Highlight                                                           |
-| -------------------------------------------------------------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| ![Upload](https://via.placeholder.com/300x180?text=Upload+Doc) | ![Analysis](https://via.placeholder.com/300x180?text=Risk+Analysis) | ![Highlight](https://via.placeholder.com/300x180?text=Highlighted+Clauses) |
-
-<details>
-  <summary>🎥 Or watch a 2-min demo video</summary>
-  <a href="https://youtube.com/your-video">▶️ Watch on YouTube</a>
-</details>
-
----
 
 ## ⚙️ Quickstart in 60s
 
@@ -88,52 +70,6 @@ $ cp .env.example .env.local
 $ nano .env.local  # Paste your OPENAI_API_KEY
 
 # 4. Start the app
-$ npm run dev
+$ npm run dev  
 ```
 
-🧪 Open [http://localhost:3000](http://localhost:3000) and test it out!
-
----
-
-## 📈 Coming Soon
-
-* 📄 Document Comparison Tool
-* 🌍 Multi-Language Support (Spanish, German, French)
-* 📦 Export Analysis to PDF/DOCX
-* 🔌 API + Webhooks for Integration
-* 🧩 Browser Extension for 1-click Analysis
-
----
-
-## 🤝 Contribute & Grow
-
-Got an idea? Found a bug? Want to help? Contributions welcome:
-
-```bash
-# Create a feature branch
-git checkout -b feat/your-feature-name
-
-# Add your magic ✨
-git commit -m "feat: added your cool feature"
-
-# Push it!
-git push origin feat/your-feature-name
-```
-
-Then open a Pull Request!
-
----
-
-## 📜 License
-
-This project is open-source under the MIT License. See [`LICENSE`](LICENSE).
-
----
-
-<p align="center">
-  🙌 If this saved you hours of legal reading, please ⭐ it on GitHub!
-</p>
-
-<p align="center">
-  <a href="https://github.com/yourusername/terms-conditions-analyzer/issues">🚀 Report an Issue</a> • <a href="https://github.com/yourusername/terms-conditions-analyzer/pulls">📥 Contribute</a>
-</p>
