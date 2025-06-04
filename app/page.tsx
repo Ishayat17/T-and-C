@@ -29,7 +29,10 @@ import {
   FileType,
   Zap,
   Brain,
-  Cpu,
+  Shield,
+  Scale,
+  Users,
+  Lock,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -107,6 +110,13 @@ interface AnalysisHistory {
   date: string
   riskLevel: "low" | "medium" | "high"
   score: number
+  analysis?: AnalysisResult
+}
+
+interface User {
+  id: string
+  email: string
+  name: string
 }
 
 export default function TermsAnalyzer() {
@@ -128,7 +138,7 @@ export default function TermsAnalyzer() {
 
   const [analysisProgress, setAnalysisProgress] = useState(0)
   const [analysisStage, setAnalysisStage] = useState("")
-  const [user, setUser] = useState<{ id: string; email: string; name: string } | null>(null)
+  const [user, setUser] = useState<User | null>(null)
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [authMode, setAuthMode] = useState<"login" | "signup">("login")
   const [authForm, setAuthForm] = useState({ email: "", password: "", name: "" })
@@ -141,6 +151,47 @@ export default function TermsAnalyzer() {
   const [selectedConcern, setSelectedConcern] = useState<number | null>(null)
   const [hoveredKeyPoint, setHoveredKeyPoint] = useState<number | null>(null)
   const [showOriginalText, setShowOriginalText] = useState(false)
+
+  // Load user data and documents from localStorage on component mount
+  useEffect(() => {
+    const savedUser = localStorage.getItem("tc-analyzer-user")
+    const savedPrivateDocs = localStorage.getItem("tc-analyzer-private-docs")
+    const savedDarkMode = localStorage.getItem("tc-analyzer-dark-mode")
+
+    if (savedUser) {
+      setUser(JSON.parse(savedUser))
+    }
+
+    if (savedPrivateDocs) {
+      setPrivateDocuments(JSON.parse(savedPrivateDocs))
+    }
+
+    if (savedDarkMode === "true") {
+      setDarkMode(true)
+      document.documentElement.classList.add("dark")
+    }
+  }, [])
+
+  // Save user data to localStorage whenever user changes
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem("tc-analyzer-user", JSON.stringify(user))
+    } else {
+      localStorage.removeItem("tc-analyzer-user")
+    }
+  }, [user])
+
+  // Save private documents to localStorage whenever they change
+  useEffect(() => {
+    if (user && privateDocuments.length > 0) {
+      localStorage.setItem("tc-analyzer-private-docs", JSON.stringify(privateDocuments))
+    }
+  }, [privateDocuments, user])
+
+  // Save dark mode preference
+  useEffect(() => {
+    localStorage.setItem("tc-analyzer-dark-mode", darkMode.toString())
+  }, [darkMode])
 
   // Move this function up before the useMemo hooks
   const getHighlightClass = (category: string, severity: "low" | "medium" | "high") => {
@@ -344,12 +395,14 @@ export default function TermsAnalyzer() {
           date: "Just now",
           riskLevel: result.riskAssessment.level,
           score: result.riskAssessment.score,
+          analysis: result,
         }
         setAnalysisHistory((prev) => [newHistoryItem, ...prev])
 
         // Save to private documents if user is logged in
         if (user) {
-          setPrivateDocuments((prev) => [{ ...newHistoryItem, id: `private-${Date.now()}` }, ...prev])
+          const privateDoc = { ...newHistoryItem, id: `private-${Date.now()}` }
+          setPrivateDocuments((prev) => [privateDoc, ...prev])
         }
       }
 
@@ -414,6 +467,7 @@ export default function TermsAnalyzer() {
         date: `Saved just now`,
         riskLevel: analysis.riskAssessment.level,
         score: analysis.riskAssessment.score,
+        analysis: analysis,
       }
       setSavedAnalyses((prev) => [newSavedItem, ...prev])
     }
@@ -464,25 +518,48 @@ export default function TermsAnalyzer() {
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    // Simulate authentication
+    // Simulate authentication with localStorage
     if (authMode === "login") {
-      // Mock login
-      if (authForm.email && authForm.password) {
+      // Check if user exists in localStorage
+      const existingUsers = JSON.parse(localStorage.getItem("tc-analyzer-users") || "[]")
+      const foundUser = existingUsers.find((u: any) => u.email === authForm.email && u.password === authForm.password)
+
+      if (foundUser) {
         setUser({
-          id: "user-123",
-          email: authForm.email,
-          name: authForm.name || authForm.email.split("@")[0],
+          id: foundUser.id,
+          email: foundUser.email,
+          name: foundUser.name,
         })
         setShowAuthModal(false)
         setAuthForm({ email: "", password: "", name: "" })
+      } else {
+        setError("Invalid email or password")
       }
     } else {
-      // Mock signup
+      // Sign up - save user to localStorage
       if (authForm.email && authForm.password && authForm.name) {
-        setUser({
-          id: "user-123",
+        const existingUsers = JSON.parse(localStorage.getItem("tc-analyzer-users") || "[]")
+
+        // Check if user already exists
+        if (existingUsers.find((u: any) => u.email === authForm.email)) {
+          setError("User with this email already exists")
+          return
+        }
+
+        const newUser = {
+          id: `user-${Date.now()}`,
           email: authForm.email,
+          password: authForm.password,
           name: authForm.name,
+        }
+
+        existingUsers.push(newUser)
+        localStorage.setItem("tc-analyzer-users", JSON.stringify(existingUsers))
+
+        setUser({
+          id: newUser.id,
+          email: newUser.email,
+          name: newUser.name,
         })
         setShowAuthModal(false)
         setAuthForm({ email: "", password: "", name: "" })
@@ -493,6 +570,14 @@ export default function TermsAnalyzer() {
   const handleLogout = () => {
     setUser(null)
     setPrivateDocuments([])
+    localStorage.removeItem("tc-analyzer-private-docs")
+  }
+
+  const loadPrivateDocument = (doc: AnalysisHistory) => {
+    if (doc.analysis) {
+      setAnalysis(doc.analysis)
+      setDocumentTitle(doc.title)
+    }
   }
 
   // Helper function to safely render category content
@@ -541,10 +626,10 @@ export default function TermsAnalyzer() {
         <div className="flex justify-between items-center mb-6">
           <div className="text-center space-y-1">
             <h1 className={`text-4xl font-bold ${darkMode ? "text-white" : "text-gray-900"}`}>
-              AI Terms & Conditions Analyzer
+              Terms & Conditions Analyzer
             </h1>
             <p className={`text-lg ${darkMode ? "text-gray-300" : "text-gray-600"}`}>
-              Powered by OpenAI GPT-4 for intelligent legal document analysis
+              AI-powered legal document analysis for terms of service and privacy policies
             </p>
           </div>
           <div className="flex items-center gap-4">
@@ -580,10 +665,10 @@ export default function TermsAnalyzer() {
               <CardHeader>
                 <CardTitle className={`flex items-center gap-2 ${darkMode ? "text-blue-300" : "text-blue-800"}`}>
                   <Brain className="h-5 w-5" />
-                  GPT-4 Powered Demo
+                  Try Demo Analysis
                 </CardTitle>
                 <CardDescription className={darkMode ? "text-blue-400" : "text-blue-700"}>
-                  Experience intelligent analysis powered by OpenAI GPT-4
+                  Experience intelligent T&C analysis with sample document
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -592,36 +677,36 @@ export default function TermsAnalyzer() {
                   disabled={isAnalyzing}
                   className="bg-blue-600 hover:bg-blue-700 w-full"
                 >
-                  {isAnalyzing ? "AI Analyzing..." : "Try AI Demo"}
+                  {isAnalyzing ? "Analyzing..." : "Try Demo"}
                 </Button>
               </CardContent>
             </Card>
 
-            {/* AI Features */}
+            {/* T&C Analysis Features */}
             <Card className={darkMode ? "border-purple-800 bg-purple-900" : "border-purple-200 bg-purple-50"}>
               <CardHeader>
                 <CardTitle className={`flex items-center gap-2 ${darkMode ? "text-purple-300" : "text-purple-800"}`}>
-                  <Cpu className="h-5 w-5" />
-                  GPT-4 Features
+                  <Scale className="h-5 w-5" />
+                  Analysis Features
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <ul className={`text-sm space-y-2 ${darkMode ? "text-purple-200" : "text-purple-800"}`}>
                   <li className="flex items-start gap-2">
-                    <div className="w-1 h-1 bg-current rounded-full mt-2 flex-shrink-0" />
-                    <span>Intelligent risk assessment</span>
+                    <Shield className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    <span>Privacy policy analysis</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <div className="w-1 h-1 bg-current rounded-full mt-2 flex-shrink-0" />
-                    <span>Context-aware analysis</span>
+                    <Users className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    <span>User rights assessment</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <div className="w-1 h-1 bg-current rounded-full mt-2 flex-shrink-0" />
-                    <span>Legal expertise built-in</span>
+                    <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    <span>Risk factor identification</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <div className="w-1 h-1 bg-current rounded-full mt-2 flex-shrink-0" />
-                    <span>Comprehensive categorization</span>
+                    <Scale className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    <span>Legal clause breakdown</span>
                   </li>
                 </ul>
               </CardContent>
@@ -713,7 +798,7 @@ export default function TermsAnalyzer() {
                     <div className="flex items-center justify-between">
                       <span className="text-sm flex items-center gap-1">
                         <MapPin className="h-3 w-3" />
-                        AI Highlights
+                        Highlights
                       </span>
                       <span className="font-medium">{analysis.textHighlights.length}</span>
                     </div>
@@ -760,11 +845,11 @@ export default function TermsAnalyzer() {
               <Card className={darkMode ? "border-indigo-800 bg-indigo-900" : "border-indigo-200 bg-indigo-50"}>
                 <CardHeader>
                   <CardTitle className={`flex items-center gap-2 ${darkMode ? "text-indigo-300" : "text-indigo-800"}`}>
-                    <Bookmark className="h-5 w-5" />
+                    <Lock className="h-5 w-5" />
                     Private Documents
                   </CardTitle>
                   <CardDescription className={darkMode ? "text-indigo-400" : "text-indigo-700"}>
-                    Your saved analyses (visible only to you)
+                    Your saved analyses (stored locally)
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="p-0">
@@ -776,6 +861,7 @@ export default function TermsAnalyzer() {
                           className={`p-3 mb-2 rounded-md cursor-pointer hover:bg-indigo-100 dark:hover:bg-indigo-800 transition-colors ${
                             darkMode ? "bg-indigo-800" : "bg-indigo-100"
                           }`}
+                          onClick={() => loadPrivateDocument(item)}
                         >
                           <div className="flex justify-between items-center">
                             <h4 className="font-medium text-sm truncate max-w-[150px]">{item.title}</h4>
@@ -805,26 +891,26 @@ export default function TermsAnalyzer() {
                 <CardHeader className="pb-2">
                   <CardTitle className={`flex items-center gap-2 ${darkMode ? "text-purple-300" : "text-purple-800"}`}>
                     <Lightbulb className="h-5 w-5" />
-                    AI Analysis Tips
+                    Analysis Tips
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <ul className={`text-sm space-y-2 ${darkMode ? "text-purple-200" : "text-purple-800"}`}>
                     <li className="flex items-start gap-2">
                       <div className="w-1 h-1 bg-current rounded-full mt-2 flex-shrink-0" />
-                      <span>AI provides context-aware risk assessment</span>
+                      <span>Focus on data collection practices</span>
                     </li>
                     <li className="flex items-start gap-2">
                       <div className="w-1 h-1 bg-current rounded-full mt-2 flex-shrink-0" />
-                      <span>Intelligent categorization of legal terms</span>
+                      <span>Check liability limitations</span>
                     </li>
                     <li className="flex items-start gap-2">
                       <div className="w-1 h-1 bg-current rounded-full mt-2 flex-shrink-0" />
-                      <span>Comprehensive analysis of user rights</span>
+                      <span>Review termination procedures</span>
                     </li>
                     <li className="flex items-start gap-2">
                       <div className="w-1 h-1 bg-current rounded-full mt-2 flex-shrink-0" />
-                      <span>PDF support with text extraction</span>
+                      <span>Understand your rights</span>
                     </li>
                   </ul>
                 </CardContent>
@@ -848,9 +934,9 @@ export default function TermsAnalyzer() {
             <Alert className={darkMode ? "border-indigo-800 bg-indigo-900/50" : "border-indigo-200 bg-indigo-50"}>
               <Sparkles className="h-4 w-4" />
               <AlertDescription className={darkMode ? "text-indigo-200" : "text-indigo-800"}>
-                <strong>AI-Powered Analysis:</strong> Now using OpenAI GPT-4 for intelligent legal document analysis
-                with context-aware risk assessment, comprehensive categorization, and expert-level insights. Upload
-                PDFs, paste text, or provide URLs for instant analysis!
+                <strong>Intelligent T&C Analysis:</strong> Advanced AI analysis for terms of service, privacy policies,
+                and legal documents. Upload PDFs, paste text, or provide URLs for comprehensive risk assessment and
+                clause breakdown!
               </AlertDescription>
             </Alert>
 
@@ -859,10 +945,10 @@ export default function TermsAnalyzer() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Brain className="h-5 w-5" />
-                  GPT-4 Document Analysis
+                  Document Analysis
                 </CardTitle>
                 <CardDescription>
-                  Upload files (PDF, text), provide a URL, or paste text for intelligent GPT-4 powered analysis
+                  Upload files (PDF, text), provide a URL, or paste text for intelligent T&C analysis
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -954,9 +1040,7 @@ export default function TermsAnalyzer() {
                 {error && (
                   <Alert className="mt-4 border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-900/30">
                     <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400" />
-                    <AlertDescription className="text-red-600 dark:text-red- dark:text-red-400">
-                      {error}
-                    </AlertDescription>
+                    <AlertDescription className="text-red-600 dark:text-red-400">{error}</AlertDescription>
                   </Alert>
                 )}
 
@@ -984,12 +1068,12 @@ export default function TermsAnalyzer() {
                     {isAnalyzing ? (
                       <>
                         <Brain className="h-4 w-4 mr-2 animate-pulse" />
-                        AI Analyzing...
+                        Analyzing...
                       </>
                     ) : (
                       <>
                         <Brain className="h-4 w-4 mr-2" />
-                        Analyze with AI
+                        Analyze Document
                       </>
                     )}
                   </Button>
@@ -1053,7 +1137,7 @@ export default function TermsAnalyzer() {
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2">
                         {getRiskIcon(analysis.riskAssessment.level)}
-                        AI Risk Assessment
+                        Risk Assessment
                         {showComparison && <span className="text-sm font-normal ml-2">(Current Document)</span>}
                       </CardTitle>
                     </CardHeader>
@@ -1064,7 +1148,7 @@ export default function TermsAnalyzer() {
                         </Badge>
                         <div className="flex-1">
                           <div className="flex justify-between text-sm mb-1">
-                            <span>AI Score: {analysis.riskAssessment.score}/100</span>
+                            <span>Score: {analysis.riskAssessment.score}/100</span>
                             <span
                               className={
                                 analysis.riskAssessment.level === "low"
@@ -1104,7 +1188,7 @@ export default function TermsAnalyzer() {
 
                       {analysis.riskAssessment.concerns.length > 0 && (
                         <div className="space-y-2">
-                          <h4 className="font-semibold text-red-700 dark:text-red-400">AI-Identified Concerns:</h4>
+                          <h4 className="font-semibold text-red-700 dark:text-red-400">Identified Concerns:</h4>
                           <ul className="space-y-1">
                             {analysis.riskAssessment.concerns.map((concern, index) => (
                               <li key={index} className="text-sm text-red-600 dark:text-red-400">
@@ -1120,7 +1204,7 @@ export default function TermsAnalyzer() {
                   {/* Summary */}
                   <Card className={darkMode ? "border-gray-700 bg-gray-800" : "border-gray-200 bg-white"}>
                     <CardHeader>
-                      <CardTitle>AI Executive Summary</CardTitle>
+                      <CardTitle>Executive Summary</CardTitle>
                     </CardHeader>
                     <CardContent>
                       <p className="text-gray-700 dark:text-gray-300 leading-relaxed">{analysis.summary}</p>
@@ -1130,7 +1214,7 @@ export default function TermsAnalyzer() {
                   {/* Key Points */}
                   <Card className={darkMode ? "border-gray-700 bg-gray-800" : "border-gray-200 bg-white"}>
                     <CardHeader>
-                      <CardTitle>AI-Identified Key Points</CardTitle>
+                      <CardTitle>Key Points</CardTitle>
                     </CardHeader>
                     <CardContent>
                       <ul className="space-y-2">
@@ -1152,9 +1236,9 @@ export default function TermsAnalyzer() {
                       <CardHeader>
                         <CardTitle className="flex items-center gap-2">
                           <Eye className="h-5 w-5" />
-                          Original Text with AI Highlights
+                          Original Text with Highlights
                         </CardTitle>
-                        <CardDescription>AI-powered text highlighting - click highlights for details</CardDescription>
+                        <CardDescription>Click highlights for details</CardDescription>
                       </CardHeader>
                       <CardContent>
                         <ScrollArea id="original-text" className="h-[400px] w-full border rounded p-4">
@@ -1164,7 +1248,7 @@ export default function TermsAnalyzer() {
                           />
                         </ScrollArea>
                         <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                          {filteredHighlights.length} AI highlights • Click highlights for details
+                          {filteredHighlights.length} highlights found • Click highlights for details
                         </div>
                       </CardContent>
                     </Card>
@@ -1173,7 +1257,7 @@ export default function TermsAnalyzer() {
                   {/* Categories */}
                   <Card className={darkMode ? "border-gray-700 bg-gray-800" : "border-gray-200 bg-white"}>
                     <CardHeader>
-                      <CardTitle>AI Category Analysis</CardTitle>
+                      <CardTitle>Category Analysis</CardTitle>
                       <div className="flex space-x-1 overflow-auto pb-2">
                         <Button
                           variant={activeCategory === "all" ? "default" : "outline"}
@@ -1228,7 +1312,7 @@ export default function TermsAnalyzer() {
                     <CardContent>
                       {(activeCategory === "all" || activeCategory === "summary") && (
                         <div className="mb-6">
-                          <h3 className="text-lg font-semibold mb-2">AI Executive Summary</h3>
+                          <h3 className="text-lg font-semibold mb-2">Executive Summary</h3>
                           <p className="text-gray-700 dark:text-gray-300 leading-relaxed">{analysis.summary}</p>
                         </div>
                       )}
@@ -1373,7 +1457,7 @@ export default function TermsAnalyzer() {
                           <Separator />
 
                           <div>
-                            <h3 className="text-lg font-semibold mb-2">AI Recommendation</h3>
+                            <h3 className="text-lg font-semibold mb-2">Recommendation</h3>
                             <p className="text-gray-700 dark:text-gray-300 text-sm">
                               {analysis.riskAssessment.score > comparisonAnalysis.riskAssessment.score
                                 ? "The comparison document appears to have more user-friendly terms with lower risk factors. Consider reviewing the differences in data collection, liability, and user rights sections."
@@ -1457,8 +1541,8 @@ export default function TermsAnalyzer() {
 
         {/* Footer */}
         <footer className="mt-12 text-center text-sm text-gray-500 dark:text-gray-400">
-          <p>AI Terms & Conditions Analyzer © {new Date().getFullYear()} | Powered by OpenAI GPT-4</p>
-          <p className="mt-1">Intelligent legal document analysis with context-aware risk assessment</p>
+          <p>Terms & Conditions Analyzer © {new Date().getFullYear()} | AI-powered legal document analysis</p>
+          <p className="mt-1">Intelligent analysis for terms of service, privacy policies, and legal documents</p>
         </footer>
       </div>
     </div>
