@@ -53,7 +53,7 @@
 
 ## 🔧 Quickstart in 60s
 
-```bash
+\`\`\`bash
 # 1. Clone project
 $ git clone https://github.com/yourusername/terms-conditions-analyzer.git
 $ cd terms-conditions-analyzer
@@ -67,9 +67,8 @@ $ nano .env.local  # Paste your OPENAI_API_KEY
 
 # 4. Start the app
 $ npm run dev
-```
+\`\`\`
 
 🧪 Open [http://localhost:3000](http://localhost:3000) and test it out!
 
 ---
-
