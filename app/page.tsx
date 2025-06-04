@@ -126,6 +126,14 @@ export default function TermsAnalyzer() {
   const [comparisonAnalysis, setComparisonAnalysis] = useState<AnalysisResult | null>(null)
   const [darkMode, setDarkMode] = useState(false)
 
+  const [analysisProgress, setAnalysisProgress] = useState(0)
+  const [analysisStage, setAnalysisStage] = useState("")
+  const [user, setUser] = useState<{ id: string; email: string; name: string } | null>(null)
+  const [showAuthModal, setShowAuthModal] = useState(false)
+  const [authMode, setAuthMode] = useState<"login" | "signup">("login")
+  const [authForm, setAuthForm] = useState({ email: "", password: "", name: "" })
+  const [privateDocuments, setPrivateDocuments] = useState<AnalysisHistory[]>([])
+
   // Interactive features
   const [showHighlights, setShowHighlights] = useState(true)
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
@@ -268,6 +276,8 @@ export default function TermsAnalyzer() {
   const analyzeDocument = async (useDemo = false) => {
     setIsAnalyzing(true)
     setError("")
+    setAnalysisProgress(0)
+    setAnalysisStage("Initializing...")
 
     try {
       const formData = new FormData()
@@ -284,11 +294,21 @@ export default function TermsAnalyzer() {
         throw new Error("Please provide a file, URL, or paste some text")
       }
 
+      // Simulate progress stages
+      setAnalysisStage("Preparing document...")
+      setAnalysisProgress(10)
+
       console.log("Making API request...")
+      setAnalysisStage("Sending to AI...")
+      setAnalysisProgress(25)
+
       const response = await fetch("/api/analyze", {
         method: "POST",
         body: formData,
       })
+
+      setAnalysisStage("AI processing document...")
+      setAnalysisProgress(50)
 
       console.log("Response status:", response.status)
 
@@ -305,8 +325,15 @@ export default function TermsAnalyzer() {
         }
       }
 
+      setAnalysisStage("Parsing AI response...")
+      setAnalysisProgress(75)
+
       const result = await response.json()
       console.log("Analysis result received:", !!result)
+
+      setAnalysisStage("Finalizing analysis...")
+      setAnalysisProgress(90)
+
       setAnalysis(result)
 
       // Add to history
@@ -319,7 +346,21 @@ export default function TermsAnalyzer() {
           score: result.riskAssessment.score,
         }
         setAnalysisHistory((prev) => [newHistoryItem, ...prev])
+
+        // Save to private documents if user is logged in
+        if (user) {
+          setPrivateDocuments((prev) => [{ ...newHistoryItem, id: `private-${Date.now()}` }, ...prev])
+        }
       }
+
+      setAnalysisStage("Complete!")
+      setAnalysisProgress(100)
+
+      // Clear progress after a short delay
+      setTimeout(() => {
+        setAnalysisProgress(0)
+        setAnalysisStage("")
+      }, 1000)
     } catch (err) {
       console.error("Analysis error:", err)
       if (err instanceof Error) {
@@ -327,6 +368,8 @@ export default function TermsAnalyzer() {
       } else {
         setError("An unexpected error occurred")
       }
+      setAnalysisProgress(0)
+      setAnalysisStage("")
     } finally {
       setIsAnalyzing(false)
     }
@@ -418,6 +461,40 @@ export default function TermsAnalyzer() {
     document.documentElement.classList.toggle("dark")
   }
 
+  const handleAuth = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    // Simulate authentication
+    if (authMode === "login") {
+      // Mock login
+      if (authForm.email && authForm.password) {
+        setUser({
+          id: "user-123",
+          email: authForm.email,
+          name: authForm.name || authForm.email.split("@")[0],
+        })
+        setShowAuthModal(false)
+        setAuthForm({ email: "", password: "", name: "" })
+      }
+    } else {
+      // Mock signup
+      if (authForm.email && authForm.password && authForm.name) {
+        setUser({
+          id: "user-123",
+          email: authForm.email,
+          name: authForm.name,
+        })
+        setShowAuthModal(false)
+        setAuthForm({ email: "", password: "", name: "" })
+      }
+    }
+  }
+
+  const handleLogout = () => {
+    setUser(null)
+    setPrivateDocuments([])
+  }
+
   // Helper function to safely render category content
   const renderCategoryContent = (category: CategoryDetail | string) => {
     if (typeof category === "string") {
@@ -470,11 +547,28 @@ export default function TermsAnalyzer() {
               Powered by OpenAI GPT-4 for intelligent legal document analysis
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <span className={`text-sm ${darkMode ? "text-gray-300" : "text-gray-600"}`}>
-              {darkMode ? "Dark" : "Light"}
-            </span>
-            <Switch checked={darkMode} onCheckedChange={toggleDarkMode} />
+          <div className="flex items-center gap-4">
+            {user ? (
+              <div className="flex items-center gap-2">
+                <div className="text-right">
+                  <p className="text-sm font-medium">{user.name}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{user.email}</p>
+                </div>
+                <Button variant="outline" size="sm" onClick={handleLogout}>
+                  Logout
+                </Button>
+              </div>
+            ) : (
+              <Button onClick={() => setShowAuthModal(true)} variant="outline">
+                Login / Sign Up
+              </Button>
+            )}
+            <div className="flex items-center gap-2">
+              <span className={`text-sm ${darkMode ? "text-gray-300" : "text-gray-600"}`}>
+                {darkMode ? "Dark" : "Light"}
+              </span>
+              <Switch checked={darkMode} onCheckedChange={toggleDarkMode} />
+            </div>
           </div>
         </div>
 
@@ -661,6 +755,50 @@ export default function TermsAnalyzer() {
               </CardContent>
             </Card>
 
+            {/* Private Documents */}
+            {user && (
+              <Card className={darkMode ? "border-indigo-800 bg-indigo-900" : "border-indigo-200 bg-indigo-50"}>
+                <CardHeader>
+                  <CardTitle className={`flex items-center gap-2 ${darkMode ? "text-indigo-300" : "text-indigo-800"}`}>
+                    <Bookmark className="h-5 w-5" />
+                    Private Documents
+                  </CardTitle>
+                  <CardDescription className={darkMode ? "text-indigo-400" : "text-indigo-700"}>
+                    Your saved analyses (visible only to you)
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <ScrollArea className="h-[180px] px-4">
+                    {privateDocuments.length > 0 ? (
+                      privateDocuments.map((item) => (
+                        <div
+                          key={item.id}
+                          className={`p-3 mb-2 rounded-md cursor-pointer hover:bg-indigo-100 dark:hover:bg-indigo-800 transition-colors ${
+                            darkMode ? "bg-indigo-800" : "bg-indigo-100"
+                          }`}
+                        >
+                          <div className="flex justify-between items-center">
+                            <h4 className="font-medium text-sm truncate max-w-[150px]">{item.title}</h4>
+                            <Badge className={getRiskColor(item.riskLevel)}>
+                              {item.riskLevel.charAt(0).toUpperCase() + item.riskLevel.slice(1)}
+                            </Badge>
+                          </div>
+                          <div className="flex justify-between items-center mt-1">
+                            <span className="text-xs text-gray-500 dark:text-gray-400">{item.date}</span>
+                            <span className="text-xs font-medium">Score: {item.score}</span>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="p-4 text-center text-sm text-gray-500 dark:text-gray-400">
+                        No private documents yet. Analyze a document to save it here.
+                      </div>
+                    )}
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Tips Card */}
             {showTips && (
               <Card className={darkMode ? "border-purple-800 bg-purple-900" : "border-purple-200 bg-purple-50"}>
@@ -820,6 +958,20 @@ export default function TermsAnalyzer() {
                       {error}
                     </AlertDescription>
                   </Alert>
+                )}
+
+                {isAnalyzing && (
+                  <div className="mt-4 space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600 dark:text-gray-400">{analysisStage}</span>
+                      <span className="text-gray-600 dark:text-gray-400">{analysisProgress}%</span>
+                    </div>
+                    <Progress value={analysisProgress} className="w-full" />
+                    <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                      <Brain className="h-4 w-4 animate-pulse" />
+                      <span>AI is analyzing your document... This may take 10-30 seconds</span>
+                    </div>
+                  </div>
                 )}
 
                 <div className="flex flex-wrap gap-3 mt-4">
@@ -1237,6 +1389,71 @@ export default function TermsAnalyzer() {
             )}
           </div>
         </div>
+
+        {/* Authentication Modal */}
+        {showAuthModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <Card className="w-full max-w-md mx-4">
+              <CardHeader>
+                <CardTitle>{authMode === "login" ? "Login" : "Sign Up"}</CardTitle>
+                <CardDescription>
+                  {authMode === "login"
+                    ? "Access your private document analyses"
+                    : "Create an account to save and manage your analyses"}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleAuth} className="space-y-4">
+                  {authMode === "signup" && (
+                    <div>
+                      <Label htmlFor="name">Full Name</Label>
+                      <Input
+                        id="name"
+                        type="text"
+                        value={authForm.name}
+                        onChange={(e) => setAuthForm((prev) => ({ ...prev, name: e.target.value }))}
+                        required={authMode === "signup"}
+                      />
+                    </div>
+                  )}
+                  <div>
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={authForm.email}
+                      onChange={(e) => setAuthForm((prev) => ({ ...prev, email: e.target.value }))}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="password">Password</Label>
+                    <Input
+                      id="password"
+                      type="password"
+                      value={authForm.password}
+                      onChange={(e) => setAuthForm((prev) => ({ ...prev, password: e.target.value }))}
+                      required
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button type="submit" className="flex-1">
+                      {authMode === "login" ? "Login" : "Sign Up"}
+                    </Button>
+                    <Button type="button" variant="outline" onClick={() => setShowAuthModal(false)}>
+                      Cancel
+                    </Button>
+                  </div>
+                </form>
+                <div className="mt-4 text-center">
+                  <Button variant="link" onClick={() => setAuthMode(authMode === "login" ? "signup" : "login")}>
+                    {authMode === "login" ? "Don't have an account? Sign up" : "Already have an account? Login"}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* Footer */}
         <footer className="mt-12 text-center text-sm text-gray-500 dark:text-gray-400">
