@@ -29,23 +29,9 @@
 * 💡 Understand your rights
 * 📉 Evaluate risk instantly
 
-> Try the live demo and upload any PDF or paste a link — see what you’re really signing up for.
-
 ---
 
-## 🧠 Why This Project Stands Out
-
-| ✅ Skill Demo               | 💼 Real-World Relevance                   |
-| -------------------------- | ----------------------------------------- |
-| Full-stack React + Next.js | Used in many SaaS + startup platforms     |
-| AI-powered backend         | Prompt engineering + cost efficiency      |
-| Secure Auth + Persistence  | User sessions, state, and privacy handled |
-| Document parsing pipeline  | Complex file/HTML → clean text extraction |
-| Interactive visual UI      | Data-driven design + real-time feedback   |
-
-> 🚨 Recruiters: Looking for clean code + practical AI apps? This is it.
-
----
+#
 
 ## 🔍 TL;DR – What It Does
 
