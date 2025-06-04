@@ -2,47 +2,87 @@ import { generateText } from "ai"
 import { openai } from "@ai-sdk/openai"
 import { type NextRequest, NextResponse } from "next/server"
 
-// AI-powered analysis function
+// Rate limiting and retry configuration
+const RETRY_CONFIG = {
+  maxRetries: 3,
+  baseDelay: 1000, // 1 second
+  maxDelay: 30000, // 30 seconds
+}
+
+// Sleep utility for delays
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+// Enhanced AI-powered analysis function with retry logic
 async function analyzeTermsAndConditionsWithAI(text: string) {
   const wordCount = text.split(/\s+/).length
 
-  try {
-    // Generate comprehensive analysis using AI
-    const { text: analysisResult } = await generateText({
-      model: openai("gpt-4o-mini"), // Using GPT-4o-mini for cost efficiency
-      system: `You are an expert legal analyst specializing in terms and conditions documents. Analyze the provided text and return a JSON response with the following structure:
+  // Try AI analysis with retry logic
+  for (let attempt = 1; attempt <= RETRY_CONFIG.maxRetries; attempt++) {
+    try {
+      console.log(`AI analysis attempt ${attempt}/${RETRY_CONFIG.maxRetries}`)
 
+      // Generate comprehensive analysis using AI with enhanced scoring instructions
+      const { text: analysisResult } = await generateText({
+        model: openai("gpt-4o-mini"),
+        system: `You are an expert legal analyst specializing in terms and conditions documents. Analyze the provided text and return a JSON response with accurate risk scoring.
+
+SCORING GUIDELINES:
+- Score 0-30: Low risk (user-friendly terms, clear rights, minimal data collection, fair dispute resolution)
+- Score 31-65: Medium risk (standard terms with some concerning clauses, moderate data collection)
+- Score 66-100: High risk (aggressive terms, extensive data collection, unfair clauses, binding arbitration)
+
+RISK FACTORS THAT INCREASE SCORE:
+- "without notice" (+15 points)
+- "at our discretion" (+12 points) 
+- "unlimited liability" or "waive all rights" (+20 points)
+- "binding arbitration" or "no class action" (+15 points)
+- Extensive data collection/sharing (+10-15 points)
+- "sell your data" or "monetize" (+25 points)
+- Immediate termination clauses (+10 points)
+- No user rights or data portability (-10 points)
+- Automatic renewals without notice (+8 points)
+- Changes without consent (+10 points)
+
+POSITIVE FACTORS THAT DECREASE SCORE:
+- Clear user rights (-5 points)
+- Data protection guarantees (-8 points)
+- Fair dispute resolution (-10 points)
+- Transparent practices (-5 points)
+- User control over data (-10 points)
+
+Return JSON with this structure:
 {
-  "summary": "A comprehensive 2-3 sentence summary of the document's key aspects and overall risk level",
-  "keyPoints": ["Array of 5-7 specific key points about important clauses, data practices, user obligations, etc."],
+  "summary": "2-3 sentence summary with specific risk level justification",
+  "keyPoints": ["5-7 specific points about clauses found"],
   "riskAssessment": {
     "level": "low|medium|high",
-    "score": number between 0-100,
-    "concerns": ["Array of specific concerning clauses or practices found"]
+    "score": calculated_score_0_to_100,
+    "concerns": ["specific concerning clauses with quotes"],
+    "reasoning": "explanation of how score was calculated"
   },
   "categories": {
     "dataCollection": {
-      "summary": "Analysis of data collection practices",
-      "details": [{"term": "specific term found", "count": number, "positions": [array of character positions]}],
-      "score": number,
+      "summary": "specific analysis of data practices found",
+      "details": [{"term": "exact phrase found", "count": number, "positions": [positions]}],
+      "score": category_specific_score,
       "riskLevel": "low|medium|high"
     },
     "liability": {
-      "summary": "Analysis of liability and disclaimer clauses",
-      "details": [{"term": "specific term found", "count": number, "positions": [array of character positions]}],
-      "score": number,
+      "summary": "specific liability analysis",
+      "details": [{"term": "exact phrase found", "count": number, "positions": [positions]}],
+      "score": category_specific_score,
       "riskLevel": "low|medium|high"
     },
     "termination": {
-      "summary": "Analysis of account termination procedures",
-      "details": [{"term": "specific term found", "count": number, "positions": [array of character positions]}],
-      "score": number,
+      "summary": "specific termination analysis", 
+      "details": [{"term": "exact phrase found", "count": number, "positions": [positions]}],
+      "score": category_specific_score,
       "riskLevel": "low|medium|high"
     },
     "userRights": {
-      "summary": "Analysis of user rights and obligations",
-      "details": [{"term": "specific term found", "count": number, "positions": [array of character positions]}],
-      "score": number,
+      "summary": "specific user rights analysis",
+      "details": [{"term": "exact phrase found", "count": number, "positions": [positions]}],
+      "score": category_specific_score,
       "riskLevel": "low|medium|high"
     }
   },
@@ -57,125 +97,221 @@ async function analyzeTermsAndConditionsWithAI(text: string) {
   ],
   "originalText": "the original input text",
   "wordCount": ${wordCount},
-  "readingTime": estimated_reading_time_in_minutes,
+  "readingTime": ${Math.ceil(wordCount / 200)},
   "categoryBreakdown": [
     {"category": "category_name", "score": number, "percentage": number}
   ]
 }
 
-Focus on:
-- Data collection and privacy practices
-- Liability limitations and disclaimers
-- Account termination procedures
-- User rights and obligations
-- Concerning phrases like "without notice", "at our discretion", "unlimited liability", etc.
-- Legal dispute resolution mechanisms
+IMPORTANT: 
+1. Calculate scores based on ACTUAL content analysis, not generic estimates
+2. Look for specific problematic phrases and clauses
+3. Consider the overall balance of user rights vs company rights
+4. Provide specific evidence for your scoring decisions
+5. Return ONLY valid JSON with no markdown formatting`,
+        prompt: `Analyze this terms and conditions document and provide accurate risk scoring based on the actual content:
 
-IMPORTANT: Return ONLY the JSON object with no markdown formatting, code blocks, or additional text. The response should be valid JSON that can be directly parsed.`,
-      prompt: `Analyze this terms and conditions document:
+${text.substring(0, 8000)} ${text.length > 8000 ? "... [truncated for analysis]" : ""}
 
-${text}
+Focus on finding specific problematic clauses, data collection practices, liability limitations, and user rights. Calculate the risk score based on the actual content, not generic assumptions.`,
+      })
 
-Provide a comprehensive analysis in the specified JSON format.`,
-    })
+      console.log("AI response received successfully")
 
-    console.log("AI response received, length:", analysisResult.length)
+      // Extract and parse JSON
+      const jsonStr = analysisResult
+        .replace(/```(?:json)?\s*/, "")
+        .replace(/\s*```\s*$/, "")
+        .trim()
 
-    // Extract JSON from the response - handle potential markdown formatting
-    let jsonStr = analysisResult
+      let parsedResult
+      try {
+        parsedResult = JSON.parse(jsonStr)
+        console.log("JSON parsed successfully, score:", parsedResult.riskAssessment?.score)
+      } catch (parseError) {
+        console.error("Failed to parse AI response:", parseError)
+        throw new Error("AI response parsing failed")
+      }
 
-    // Remove markdown code blocks if present
-    jsonStr = jsonStr.replace(/```(?:json)?\s*/, "").replace(/\s*```\s*$/, "")
+      // Validate and ensure score is reasonable
+      const score = Math.max(0, Math.min(100, parsedResult.riskAssessment?.score || 50))
+      const level = score <= 30 ? "low" : score <= 65 ? "medium" : "high"
 
-    // Remove any leading/trailing whitespace
-    jsonStr = jsonStr.trim()
+      return {
+        summary: parsedResult.summary || `This ${wordCount}-word document has been analyzed for risk factors.`,
+        keyPoints: parsedResult.keyPoints || ["Document requires detailed review"],
+        riskAssessment: {
+          level,
+          score,
+          concerns: parsedResult.riskAssessment?.concerns || ["Standard terms and conditions"],
+          reasoning: parsedResult.riskAssessment?.reasoning || "Score based on content analysis",
+        },
+        categories: parsedResult.categories || generateDefaultCategories(),
+        textHighlights: parsedResult.textHighlights || [],
+        originalText: text,
+        wordCount,
+        readingTime: Math.ceil(wordCount / 200),
+        categoryBreakdown: parsedResult.categoryBreakdown || [],
+        analysisMethod: "AI-powered",
+      }
+    } catch (error: any) {
+      console.error(`AI analysis attempt ${attempt} failed:`, error.message)
 
-    console.log("Extracted JSON string, first 100 chars:", jsonStr.substring(0, 100))
-
-    // Parse the AI response
-    let parsedResult
-    try {
-      parsedResult = JSON.parse(jsonStr)
-      console.log("JSON parsed successfully")
-    } catch (parseError) {
-      console.error("Failed to parse AI response:", parseError)
-      console.error("First 200 characters of response:", jsonStr.substring(0, 200))
-      // Fallback to basic analysis if AI response is malformed
-      return generateFallbackAnalysis(text, wordCount)
+      // Check if it's a rate limit error
+      if (error.message?.includes("Rate limit") || error.message?.includes("429")) {
+        if (attempt < RETRY_CONFIG.maxRetries) {
+          // Calculate exponential backoff delay
+          const delay = Math.min(RETRY_CONFIG.baseDelay * Math.pow(2, attempt - 1), RETRY_CONFIG.maxDelay)
+          console.log(`Rate limit hit, waiting ${delay}ms before retry...`)
+          await sleep(delay)
+          continue
+        } else {
+          console.log("Max retries reached, falling back to enhanced analysis")
+          break
+        }
+      } else {
+        // For non-rate-limit errors, try once more or fallback
+        if (attempt < RETRY_CONFIG.maxRetries) {
+          await sleep(1000)
+          continue
+        } else {
+          break
+        }
+      }
     }
-
-    // Ensure all required fields are present
-    return {
-      summary:
-        parsedResult.summary ||
-        `This ${wordCount}-word document contains terms and conditions that require careful review.`,
-      keyPoints: parsedResult.keyPoints || ["Document contains legal terms requiring review"],
-      riskAssessment: {
-        level: parsedResult.riskAssessment?.level || "medium",
-        score: parsedResult.riskAssessment?.score || 50,
-        concerns: parsedResult.riskAssessment?.concerns || ["Standard terms and conditions - review recommended"],
-      },
-      categories: parsedResult.categories || generateDefaultCategories(),
-      textHighlights: parsedResult.textHighlights || [],
-      originalText: text,
-      wordCount,
-      readingTime: Math.ceil(wordCount / 200),
-      categoryBreakdown: parsedResult.categoryBreakdown || [],
-    }
-  } catch (error) {
-    console.error("AI analysis failed:", error)
-    // Fallback to basic analysis if AI fails
-    return generateFallbackAnalysis(text, wordCount)
   }
+
+  // If all AI attempts failed, use enhanced fallback
+  console.log("AI analysis failed, using enhanced fallback analysis")
+  return generateEnhancedFallbackAnalysis(text, wordCount)
 }
 
-// Fallback analysis function for when AI fails
-function generateFallbackAnalysis(text: string, wordCount: number) {
-  console.log("Using fallback analysis")
+// Enhanced fallback analysis with better scoring
+function generateEnhancedFallbackAnalysis(text: string, wordCount: number) {
+  console.log("Using enhanced fallback analysis")
   const lowerText = text.toLowerCase()
 
-  // Basic keyword detection for fallback
-  const riskKeywords = [
-    "without notice",
-    "at our discretion",
-    "unlimited liability",
-    "waive all rights",
-    "binding arbitration",
-    "sell your data",
+  // Enhanced risk keyword detection with scoring
+  const riskFactors = [
+    { keyword: "without notice", weight: 15, found: false },
+    { keyword: "at our discretion", weight: 12, found: false },
+    { keyword: "unlimited liability", weight: 20, found: false },
+    { keyword: "waive all rights", weight: 18, found: false },
+    { keyword: "binding arbitration", weight: 15, found: false },
+    { keyword: "sell your data", weight: 25, found: false },
+    { keyword: "share with third parties", weight: 12, found: false },
+    { keyword: "no class action", weight: 15, found: false },
+    { keyword: "immediate termination", weight: 10, found: false },
+    { keyword: "modify at any time", weight: 10, found: false },
+    { keyword: "collect personal information", weight: 8, found: false },
+    { keyword: "track your activity", weight: 10, found: false },
+    { keyword: "no warranty", weight: 8, found: false },
+    { keyword: "as is", weight: 6, found: false },
+    { keyword: "third party", weight: 5, found: false },
+    { keyword: "cookies", weight: 4, found: false },
+    { keyword: "advertising", weight: 6, found: false },
+    { keyword: "marketing purposes", weight: 7, found: false },
   ]
 
-  const foundRisks = riskKeywords.filter((keyword) => lowerText.includes(keyword))
-  const riskScore = Math.min(30 + foundRisks.length * 15, 100)
+  // Positive factors that reduce risk
+  const positiveFactors = [
+    { keyword: "user rights", weight: -5, found: false },
+    { keyword: "data protection", weight: -8, found: false },
+    { keyword: "privacy policy", weight: -3, found: false },
+    { keyword: "opt out", weight: -5, found: false },
+    { keyword: "delete your data", weight: -8, found: false },
+    { keyword: "fair use", weight: -4, found: false },
+    { keyword: "transparent", weight: -3, found: false },
+    { keyword: "user control", weight: -6, found: false },
+  ]
+
+  // Calculate risk score based on found factors
+  let riskScore = 25 // Base score
+
+  riskFactors.forEach((factor) => {
+    if (lowerText.includes(factor.keyword)) {
+      factor.found = true
+      riskScore += factor.weight
+    }
+  })
+
+  positiveFactors.forEach((factor) => {
+    if (lowerText.includes(factor.keyword)) {
+      factor.found = true
+      riskScore += factor.weight // These are negative weights
+    }
+  })
+
+  // Adjust based on document characteristics
+  if (wordCount > 5000) riskScore += 5 // Longer documents tend to be more complex
+  if (wordCount < 500) riskScore -= 5 // Very short documents might be simpler
+
+  // Additional content-based adjustments
+  const sentences = text.split(/[.!?]+/).length
+  const avgSentenceLength = wordCount / sentences
+  if (avgSentenceLength > 25) riskScore += 3 // Complex sentences might hide issues
+
+  // Ensure score is within bounds
+  riskScore = Math.max(0, Math.min(100, riskScore))
 
   let riskLevel: "low" | "medium" | "high" = "low"
-  if (riskScore >= 70) riskLevel = "high"
-  else if (riskScore >= 45) riskLevel = "medium"
+  if (riskScore > 65) riskLevel = "high"
+  else if (riskScore > 30) riskLevel = "medium"
+
+  const foundRiskFactors = riskFactors.filter((f) => f.found)
+  const foundPositiveFactors = positiveFactors.filter((f) => f.found)
+
+  // Generate category-specific analysis
+  const categories = generateEnhancedCategories(lowerText, foundRiskFactors, foundPositiveFactors)
 
   return {
-    summary: `This ${wordCount}-word document contains ${riskLevel} risk terms and conditions. ${foundRisks.length > 0 ? "Several concerning clauses were identified. " : ""}Users should review carefully before accepting.`,
+    summary: `This ${wordCount}-word document scores ${riskScore}/100 for risk level. ${foundRiskFactors.length > 0 ? `Found ${foundRiskFactors.length} concerning clauses including "${foundRiskFactors[0].keyword}". ` : ""}${foundPositiveFactors.length > 0 ? `Document includes ${foundPositiveFactors.length} user-friendly provisions. ` : ""}${riskLevel === "high" ? "High risk - careful review recommended." : riskLevel === "medium" ? "Medium risk - standard corporate terms." : "Low risk - relatively user-friendly terms."}`,
     keyPoints: [
-      `Document contains ${wordCount} words of legal text`,
-      foundRisks.length > 0
-        ? `Found ${foundRisks.length} potentially concerning clauses`
-        : "Standard legal language detected",
-      "Review recommended before accepting terms",
-      "Pay attention to data collection and liability sections",
-      "Check termination and dispute resolution procedures",
+      `Document contains ${wordCount} words across ${sentences} sentences`,
+      `Risk score: ${riskScore}/100 (${riskLevel} risk level)`,
+      foundRiskFactors.length > 0
+        ? `⚠️ Concerning clauses found: ${foundRiskFactors
+            .slice(0, 3)
+            .map((f) => f.keyword)
+            .join(", ")}${foundRiskFactors.length > 3 ? ` and ${foundRiskFactors.length - 3} more` : ""}`
+        : "✅ No major red flags detected in automated analysis",
+      foundPositiveFactors.length > 0
+        ? `✅ Positive aspects: ${foundPositiveFactors
+            .slice(0, 3)
+            .map((f) => f.keyword)
+            .join(", ")}`
+        : "⚠️ Limited user-friendly provisions detected",
+      `Average sentence length: ${avgSentenceLength.toFixed(1)} words ${avgSentenceLength > 25 ? "(complex)" : "(readable)"}`,
+      riskLevel === "high" ? "🚨 Recommend legal review before acceptance" : "📋 Standard review recommended",
     ],
     riskAssessment: {
       level: riskLevel,
       score: riskScore,
       concerns:
-        foundRisks.length > 0
-          ? foundRisks.map((risk) => `Document contains: "${risk}"`)
-          : ["Standard terms and conditions - review recommended"],
+        foundRiskFactors.length > 0
+          ? foundRiskFactors.map((f) => `Found "${f.keyword}" (risk impact: +${f.weight} points)`)
+          : ["No major concerning clauses detected in automated analysis"],
+      reasoning: `Score calculated from base score (25) + ${foundRiskFactors.length} risk factors (+${foundRiskFactors.reduce((sum, f) => sum + f.weight, 0)} points) + ${foundPositiveFactors.length} positive factors (${foundPositiveFactors.reduce((sum, f) => sum + f.weight, 0)} points) + document complexity adjustments`,
     },
-    categories: generateDefaultCategories(),
+    categories,
     textHighlights: [],
     originalText: text,
     wordCount,
     readingTime: Math.ceil(wordCount / 200),
-    categoryBreakdown: [{ category: "general", score: riskScore, percentage: 100 }],
+    categoryBreakdown: [
+      { category: "overall_risk", score: riskScore, percentage: 100 },
+      {
+        category: "detected_issues",
+        score: Math.min(100, foundRiskFactors.length * 15),
+        percentage: Math.min(100, (foundRiskFactors.length / riskFactors.length) * 100),
+      },
+      {
+        category: "user_protections",
+        score: Math.max(0, 100 - foundPositiveFactors.length * 20),
+        percentage: Math.min(100, (foundPositiveFactors.length / positiveFactors.length) * 100),
+      },
+    ],
+    analysisMethod: "Enhanced fallback analysis",
   }
 }
 
@@ -184,26 +320,76 @@ function generateDefaultCategories() {
     dataCollection: {
       summary: "Data collection practices require review",
       details: [],
-      score: 0,
+      score: 50,
       riskLevel: "medium" as const,
     },
     liability: {
       summary: "Liability terms require review",
       details: [],
-      score: 0,
+      score: 50,
       riskLevel: "medium" as const,
     },
     termination: {
       summary: "Termination procedures require review",
       details: [],
-      score: 0,
+      score: 50,
       riskLevel: "medium" as const,
     },
     userRights: {
       summary: "User rights and obligations require review",
       details: [],
-      score: 0,
+      score: 50,
       riskLevel: "medium" as const,
+    },
+  }
+}
+
+function generateEnhancedCategories(lowerText: string, riskFactors: any[], positiveFactors: any[]) {
+  // Data Collection Analysis
+  const dataTerms = ["collect", "personal information", "cookies", "tracking", "analytics", "third party"]
+  const dataRisks = dataTerms.filter((term) => lowerText.includes(term))
+  const dataScore = Math.min(100, 30 + dataRisks.length * 10)
+
+  // Liability Analysis
+  const liabilityTerms = ["liability", "warranty", "as is", "damages", "responsible"]
+  const liabilityRisks = liabilityTerms.filter((term) => lowerText.includes(term))
+  const liabilityScore = Math.min(100, 25 + liabilityRisks.length * 12)
+
+  // Termination Analysis
+  const terminationTerms = ["terminate", "suspend", "without notice", "discretion"]
+  const terminationRisks = terminationTerms.filter((term) => lowerText.includes(term))
+  const terminationScore = Math.min(100, 20 + terminationRisks.length * 15)
+
+  // User Rights Analysis
+  const rightsTerms = ["rights", "opt out", "delete", "access", "control"]
+  const rightsProtections = rightsTerms.filter((term) => lowerText.includes(term))
+  const rightsScore = Math.max(0, 70 - rightsProtections.length * 10)
+
+  return {
+    dataCollection: {
+      summary: `${dataRisks.length > 0 ? `Found data collection terms: ${dataRisks.join(", ")}` : "Limited data collection language detected"}`,
+      details: dataRisks.map((term) => ({ term, count: 1, positions: [] })),
+      score: dataScore,
+      riskLevel: dataScore > 60 ? ("high" as const) : dataScore > 35 ? ("medium" as const) : ("low" as const),
+    },
+    liability: {
+      summary: `${liabilityRisks.length > 0 ? `Found liability terms: ${liabilityRisks.join(", ")}` : "Standard liability language"}`,
+      details: liabilityRisks.map((term) => ({ term, count: 1, positions: [] })),
+      score: liabilityScore,
+      riskLevel: liabilityScore > 60 ? ("high" as const) : liabilityScore > 35 ? ("medium" as const) : ("low" as const),
+    },
+    termination: {
+      summary: `${terminationRisks.length > 0 ? `Found termination terms: ${terminationRisks.join(", ")}` : "Standard termination procedures"}`,
+      details: terminationRisks.map((term) => ({ term, count: 1, positions: [] })),
+      score: terminationScore,
+      riskLevel:
+        terminationScore > 60 ? ("high" as const) : terminationScore > 35 ? ("medium" as const) : ("low" as const),
+    },
+    userRights: {
+      summary: `${rightsProtections.length > 0 ? `Found user rights terms: ${rightsProtections.join(", ")}` : "Limited user rights provisions"}`,
+      details: rightsProtections.map((term) => ({ term, count: 1, positions: [] })),
+      score: rightsScore,
+      riskLevel: rightsScore > 60 ? ("high" as const) : rightsScore > 35 ? ("medium" as const) : ("low" as const),
     },
   }
 }
@@ -225,14 +411,14 @@ export async function POST(request: NextRequest) {
       useDemo,
     })
 
-    // If demo mode is requested, return AI-generated demo analysis
+    // If demo mode is requested, return enhanced demo analysis
     if (useDemo) {
-      console.log("Generating OpenAI demo analysis")
+      console.log("Generating enhanced demo analysis")
       const demoText = `
-        Terms of Service
+        Terms of Service - Example Platform
 
         1. Data Collection and Privacy
-        We collect personal data including your name, email address, browsing habits, device information, location data, and usage patterns. This information may be shared with third-party partners for advertising and marketing purposes. We use cookies and tracking technologies to monitor your behavior across our platform.
+        We collect personal data including your name, email address, browsing habits, device information, location data, and usage patterns. This information may be shared with third-party partners for advertising and marketing purposes without notice. We use cookies and tracking technologies to monitor your behavior across our platform and sell your data to advertisers.
 
         2. Liability and Disclaimers
         The service is provided "as is" without warranty. We disclaim all liability for damages, loss, or harm resulting from service use. Users waive all rights to hold the company responsible for any issues. This limitation of liability is unlimited and applies to all circumstances.
@@ -245,6 +431,9 @@ export async function POST(request: NextRequest) {
 
         5. Changes to Terms
         We may modify these terms at any time without notice. Continued use constitutes acceptance of changes. Users cannot opt out of modifications.
+
+        6. User Obligations
+        Users are responsible for all activity on their account. We collect and track your activity for marketing purposes and may share this with third parties.
       `
 
       return NextResponse.json(await analyzeTermsAndConditionsWithAI(demoText))
@@ -351,15 +540,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Document appears to be empty or too short to analyze" }, { status: 400 })
     }
 
-    // Limit text length for AI processing (to avoid token limits)
+    // Limit text length for processing
     if (text.length > 50000) {
       text = text.substring(0, 50000) + "... [truncated for analysis]"
-      console.log("Text truncated for AI processing")
+      console.log("Text truncated for processing")
     }
 
-    console.log("Performing AI-powered analysis...")
+    console.log("Performing analysis...")
     const analysis = await analyzeTermsAndConditionsWithAI(text)
-    console.log("AI analysis completed successfully")
+    console.log("Analysis completed successfully, method:", analysis.analysisMethod)
 
     return NextResponse.json(analysis)
   } catch (error) {
